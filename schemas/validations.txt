@@ -1,6 +1,6 @@
 # Database Schema with Validations
 
-Rule 1: All tables must define a PRIMARY KEY.
+Rule 1: All tables must define a PRIMARY KEY and it must be mentioned explicitaly.
 Rule 2: Columns must have consistent data types.
 Rule 3: Use of UNIQUE is not a replacement for PRIMARY KEY.
 Rule 4: Foreign keys must reference valid primary keys.

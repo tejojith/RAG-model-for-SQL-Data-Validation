@@ -1,0 +1,86 @@
+C:\Users\HP\RAG MODEL>python main.py
+
+🔍 Enter your question (or type 'exit'): does all the tables use a primary key?
+C:\Users\HP\RAG MODEL\codebase_rag.py:45: LangChainDeprecationWarning: The method `Chain.__call__` was deprecated in langchain 0.1.0 and will be removed in 1.0. Use :meth:`~invoke` instead.
+  result = qa(query)
+
+🧠 Answer:  Yes, all the tables use a primary key. In SQL, each table should have at least one column designated as the primary key to uniquely identify each row in the table. In this context, each table has an 'AUTO_INCREMENT' INT field specified as the primary key, which will automatically assign unique values when new rows are inserted.
+
+🔍 Enter your question (or type 'exit'): exit
+
+C:\Users\HP\RAG MODEL>python main.py
+
+🔍 Enter your question (or type 'exit'): does all the tables have a primary key
+C:\Users\HP\RAG MODEL\codebase_rag.py:45: LangChainDeprecationWarning: The method `Chain.__call__` was deprecated in langchain 0.1.0 and will be removed in 1.0. Use :meth:`~invoke` instead.
+  result = qa(query)
+
+🧠 Answer:  Yes, in each table, a primary key has been defined. In the product_images table, the primary key is image_id; in the addresses table, it is address_id; in the wishlist table, it is wishlist_id; and in the categories table, it is category_id.
+
+🔍 Enter your question (or type 'exit'): user table doesnt have a primary key
+
+🧠 Answer:  In the provided context, it appears that there is an error in the `users` table definition. The `user_id` column in this table is defined as an integer but not explicitly set as a PRIMARY KEY or AUTO_INCREMENT. However, the primary key constraint is typically applied to one of the columns to uniquely identify each row in a table. To correct the error, you can modify the `users` table definition by adding the following line:
+
+```
+PRIMARY KEY (user_id)
+```
+
+The corrected `users` table definition would look like this:
+
+```
+CREATE TABLE users (
+    user_id INT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    date_of_birth DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+```
+
+🔍 Enter your question (or type 'exit'):  Do any schemas violate the foreign key rules from the validation file?
+
+🧠 Answer:  Based on the provided context, there are no obvious violations of foreign key rules within the schema. However, it's important to note that while the schema enforces certain constraints, it does not guarantee referential integrity when data is inserted or updated because application-level logic is not included in the schema.
+
+For instance, in the `addresses` table, there is no constraint enforced for a `user_id` reference that guarantees that each user has only one address with an `is_default = TRUE`. This would be an application-level validation rule to maintain data consistency.
+
+Similarly, the `categories` table does not have a foreign key constraint on the `products` table, which would ensure that every product belongs to at least one category. This is another example of an application-level validation rule.
+
+🔍 Enter your question (or type 'exit'): the schemas have been updated, check with new tables if any validations are violated
+
+🧠 Answer: 1. User Management Validations (User Table):
+   - Check username format (alphanumeric with optional underscores/hyphens and no spaces) using a regular expression or function that checks for these conditions.
+
+2. Address Management Validations (Addresses Table):
+   - Validate address components (like street, city, state/province, country, etc.) against known lists or databases. This is typically an application-level validation and not SQL level due to the complexities involved.
+   - Limit the number of default addresses per user (e.g., one default address) by adding a unique constraint on (user_id, is_default).
+
+3. Product Management Validations (Products Table):
+   - Check product name uniqueness using a unique constraint on (name). This ensures that no two products have the same name.
+   - Ensure product description meets the minimum character requirement of 20 characters using SQL validations or application-level checks.
+
+4. Order Processing Validations:
+   - Implement business rules for status transitions to ensure proper order flow and prevent unauthorized changes (e.g., from 'shipped' to 'cancelled').
+   - Check that the order date is not in the future using a check constraint or application-level validation to maintain data integrity.
+
+5. Reviews Validations (Reviews Table):
+   - Verify that the user has purchased the product before allowing them to post a review by checking the user's purchase history or adding a foreign key relationship with the Purchases table.
+   - Implement HTML/JavaScript sanitization to prevent potential security risks from malicious content in comments.
+
+6. Wishlist Validations (Wishlist Table):
+   - Check if the product is active before allowing it to be added using a foreign key relationship with an 'Active' status on the Products table.
+   - Limit the maximum number of items per user by adding a constraint or application-level validation.
+
+7. Images Validations (Product_Images Table):
+   - Implement checks for image dimensions, aspect ratio, file size, and supported formats to ensure uploaded images meet required specifications. This can be done using PHP functions or other server-side languages if images are being stored on the application's servers. If images are hosted elsewhere, you may need to rely on third-party APIs or libraries to validate image files.
+
+🔍 Enter your question (or type 'exit'): does the tables have all correct columns with primary key
+
+🧠 Answer:  Yes, each table has a primary key defined as an auto-incrementing integer. The `CREATE TABLE` statements are correctly written for that purpose. In the `product_images`, `addresses`, `products`, and `wishlist` tables, the columns have been defined with appropriate data types (except the `TEXT` type in the `products` table for `description`) and constraints, such as foreign keys referencing other tables. So, it seems that all necessary columns have been included in each table.
+
+🔍 Enter your question (or type 'exit'): exit
+
+C:\Users\HP\RAG MODEL>

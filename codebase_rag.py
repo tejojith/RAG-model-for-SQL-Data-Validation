@@ -10,6 +10,15 @@ from langchain_community.document_loaders import TextLoader
 from langchain_ollama.embeddings import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
 
+import sqlglot
+
+
+from langchain.prompts import PromptTemplate
+
+# VALIDATION_PROMPT = PromptTemplate.from_template("""
+# """)
+
+
 class CodebaseRAG:
     def __init__(self, project_path, db_path):
         self.project_path = project_path
@@ -29,6 +38,38 @@ class CodebaseRAG:
 
     def load_vector_db(self):
         self.vector_db = Chroma(persist_directory=self.db_path, embedding_function=self.embedding)
+    
+    # def validate_sql_files(self):
+    #     print("\n🔍 Running schema validation using sqlglot:\n")
+
+    #     for root, _, files in os.walk(self.project_path):
+    #         for file in files:
+    #             if file.endswith(".sql"):
+    #                 file_path = os.path.join(root, file)
+    #                 with open(file_path, "r", encoding="utf-8") as f:
+    #                     sql_code = f.read()
+
+    #                 try:
+    #                     parsed = sqlglot.parse_one(sql_code, read="mysql")
+    #                     has_primary_key = False
+
+    #                     if "PRIMARY KEY" in sql_code.upper():
+    #                         has_primary_key = True
+    #                     else:
+    #                         # More thorough check of parsed structure
+    #                         for pk in parsed.find_all(sqlglot.expressions.PrimaryKey):
+    #                             has_primary_key = True
+    #                             break
+
+    #                     if has_primary_key:
+    #                         print(f"{file} — VALID (PRIMARY KEY present)")
+    #                     else:
+    #                         print(f"{file} — INVALID (No PRIMARY KEY found)")
+    #                 except Exception as e:
+    #                     print(f"⚠️ {file} — PARSE ERROR: {str(e)}")
+
+    
+
 
     def query_rag_system(self):
         if not self.vector_db:
@@ -37,6 +78,8 @@ class CodebaseRAG:
         
         llm = OllamaLLM(model="mistral")  # Use any: mistral, wizardcoder, codellama
         qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, return_source_documents=True)
+
+        #,chain_type_kwargs={"prompt": VALIDATION_PROMPT} this is for prompt template
         
         while True:
             query = input("\n🔍 Enter your question (or type 'exit'): ")
