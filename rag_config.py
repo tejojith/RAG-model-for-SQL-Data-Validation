@@ -2,7 +2,6 @@ import os
 
 def check_for_file():
     def is_sqlite3_file(filepath):
-        """Check if a file is a valid SQLite3 database file."""
         if not os.path.isfile(filepath):
             return False
         try:
@@ -13,7 +12,6 @@ def check_for_file():
             return False
 
     def find_sqlite_files_loop(base_dir):
-        """Use a loop to check each directory and subdirectory for SQLite files."""
         sqlite_files = []
         dirs_to_check = [base_dir]
 
@@ -57,7 +55,7 @@ def check_for_file():
     if number == 0:
         print("do you want to continue with the existing DB? (y/n)")
         if input().lower() == 'y':
-            DB_PATH = "\n{found_files[0]}"
+            DB_PATH = found_files[0]
         else:
             DB_PATH = create_new_db()
     else:

@@ -15,8 +15,33 @@ import sqlglot
 
 from langchain.prompts import PromptTemplate
 
-# VALIDATION_PROMPT = PromptTemplate.from_template("""
-# """)
+VALIDATION_PROMPT = PromptTemplate.from_template("""
+You are a helpful assistant that answers developer queries using schema and document context.
+You need to provide accurate and concise answers based on the provided context.
+You will be given a context that includes code snippets, documentation, and other relevant information.
+Your task is to give test case validation based on the context and the user's question.
+You will be provided with a context and a question.
+
+Follow these strict rules:
+- Give only the schema and no context, until it is explicitly asked for.                                                 
+- If the output is for the terminal, include a clear answer and reasoning.
+- If the output is for a file (e.g., .py, .sql, .java), return only the raw code/content the user asked for. No greetings, no explanations, no comments unless the user asked for them.
+- Be concise and return only what is necessary for the selected mode.
+
+---
+
+Context:
+{context}
+
+---
+
+User Query:
+{question}
+
+
+Your response:
+
+""")
 
 
 class CodebaseRAG:
@@ -26,6 +51,25 @@ class CodebaseRAG:
         self.embed_model = "nomic-embed-text"  # or mxbai-embed-large for code
         self.embedding = OllamaEmbeddings(model=self.embed_model)
         self.vector_db = None
+
+    def save_to_file(self, answer):
+        output_format = input("Choose a format to save results (e.g. sql, py): ").strip().lower()
+        valid_formats = ["txt", "sql", "py", "java"]
+        if output_format not in valid_formats:
+            print(f"Invalid format. Defaulting to 'txt'")
+            output_format = "txt"
+
+
+        output_file = f"rag_output.{output_format}"
+        with open(output_file, "a", encoding="utf-8") as f:
+            if output_format == "txt":
+                f.write(f"{answer}\n{'-'*40}\n")
+            elif output_format == "sql":
+                f.write(f"{answer}\n{'-'*40}\n")
+            elif output_format == "py":
+                f.write(f"{answer}\n{'#'*40}\n")
+            elif output_format == "java":
+                f.write(f"{answer}\n{'/'*40}\n")
 
     def create_embeddings_and_store(self):
         loader = DirectoryLoader(self.project_path, glob="**/*.*", loader_cls=TextLoader) #changed to include all files
@@ -39,37 +83,6 @@ class CodebaseRAG:
     def load_vector_db(self):
         self.vector_db = Chroma(persist_directory=self.db_path, embedding_function=self.embedding)
     
-    # def validate_sql_files(self):
-    #     print("\n🔍 Running schema validation using sqlglot:\n")
-
-    #     for root, _, files in os.walk(self.project_path):
-    #         for file in files:
-    #             if file.endswith(".sql"):
-    #                 file_path = os.path.join(root, file)
-    #                 with open(file_path, "r", encoding="utf-8") as f:
-    #                     sql_code = f.read()
-
-    #                 try:
-    #                     parsed = sqlglot.parse_one(sql_code, read="mysql")
-    #                     has_primary_key = False
-
-    #                     if "PRIMARY KEY" in sql_code.upper():
-    #                         has_primary_key = True
-    #                     else:
-    #                         # More thorough check of parsed structure
-    #                         for pk in parsed.find_all(sqlglot.expressions.PrimaryKey):
-    #                             has_primary_key = True
-    #                             break
-
-    #                     if has_primary_key:
-    #                         print(f"{file} — VALID (PRIMARY KEY present)")
-    #                     else:
-    #                         print(f"{file} — INVALID (No PRIMARY KEY found)")
-    #                 except Exception as e:
-    #                     print(f"⚠️ {file} — PARSE ERROR: {str(e)}")
-
-    
-
 
     def query_rag_system(self):
         if not self.vector_db:
@@ -77,13 +90,21 @@ class CodebaseRAG:
         retriever = self.vector_db.as_retriever()
         
         llm = OllamaLLM(model="mistral")  # Use any: mistral, wizardcoder, codellama
-        qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, return_source_documents=True)
+        qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, return_source_documents=True,chain_type_kwargs={"prompt": VALIDATION_PROMPT} )
 
-        #,chain_type_kwargs={"prompt": VALIDATION_PROMPT} this is for prompt template
         
+
+
+
         while True:
             query = input("\n🔍 Enter your question (or type 'exit'): ")
             if query.lower() in ["exit", "quit"]:
                 break
             result = qa(query)
-            print("\n🧠 Answer:", result["result"])
+            ch = input("Do you want to save the results or show it here? (0/1): ").strip().lower()
+            if(ch == '0'):
+                answer = result["result"]
+                self.save_to_file(result["result"])
+            else:    
+                print("\n🧠 Answer:", result["result"])
+
