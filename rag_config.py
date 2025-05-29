@@ -55,13 +55,13 @@ def check_for_file():
     if number == 0:
         print("do you want to continue with the existing DB? (y/n)")
         if input().lower() == 'y':
-            DB_PATH = found_files[0]
+            DB_PATH = found_files[0].split('\\')[1]
         else:
             DB_PATH = create_new_db()
     else:
         DB_PATH = create_new_db()
 
-
     PROJECT_PATH = "schemas"
 
     return PROJECT_PATH, DB_PATH
+

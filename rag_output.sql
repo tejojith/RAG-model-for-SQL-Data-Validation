@@ -36,3 +36,59 @@
        CHECK (DATE_FORMAT(`date_of_birth`, '%Y-%m-%d') <= NOW())
    );
 ----------------------------------------
+ ```sql
+-- Test Case Validation SQL Schema for Users Table
+
+-- Rule 1: All tables must define a PRIMARY KEY and it must be mentioned explicitly. (Valid)
+
+-- Rule 2: Columns must have consistent data types. (Valid, except date_of_birth and last_login are of different type)
+
+-- Rule 3: Use of UNIQUE is not a replacement for PRIMARY KEY. (Valid, only used on username and email)
+
+-- Rule 4: Foreign keys must reference valid primary keys. (N/A, no foreign keys in this table)
+
+-- Additional Application-Level Validations
+
+-- Username: alphanumeric with optional underscores/hyphens (no spaces). (Valid, except for data constraints)
+CREATE TABLE users_test (
+    user_id INT PRIMARY KEY,
+    username VARCHAR(50),
+    username_check CHECK (REGEXP_LIKE(username, '^[a-zA-Z0-9_\-]+$')), -- Validates alphanumeric with optional underscores/hyphens
+    -- Other columns omitted for brevity
+);
+
+-- Password: minimum 8 chars, require at least 1 number and 1 special character. (N/A, no password field in this table)
+
+-- Email verification via confirmation email. (N/A, not applicable to schema validation)
+
+ALTER TABLE users ADD CONSTRAINT email_unique UNIQUE (email); -- To enforce unique emails
+
+-- Address Management:
+   - Validate address components against known lists. (Not applicable to schema validation)
+   - Only one default address per user. (Not applicable to schema validation)
+
+-- Product Management:
+   - Product name must be unique (case-insensitive). (Not applicable to this table, no product fields exist)
+   - Description minimum 20 characters. (Not applicable to this table, no description field exists)
+
+-- Order Processing:
+   - Status transitions must follow business rules. (Not applicable to schema validation)
+   - Order date cannot be in the future. (Not applicable to schema validation as no order-related fields exist)
+```
+----------------------------------------
+ ```sql
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY,
+    Username VARCHAR(255) CHECK (REGEXP_LIKE(Username, '^[A-Za-z0-9_\-]+$')),
+    Password VARCHAR(255) CHECK (REGEXP_LIKE(Password, '^.{8,}.*[0-9].*[!@#$%^&*.]')),
+    Email VARCHAR(255) UNIQUE,
+    EmailVerified BOOLEAN DEFAULT FALSE
+);
+
+ALTER TABLE Users ADD CONSTRAINT FK_Email FOREIGN KEY (Email) REFERENCES EmailConfirmations(Email);
+```
+
+The above schema follows the rules defined in the context. The `Users` table has a primary key `UserID`. The `Username`, `Password`, and `Email` columns have their respective data types and application-level validations. For example, the username accepts alphanumeric characters with optional underscores or hyphens (no spaces) while the password requires at least 8 characters, including one number and one special character.
+
+The `Email` column is unique but does not serve as a primary key. Instead, it references the `EmailConfirmations` table using a foreign key constraint. The schema also includes an additional column for email verification.
+----------------------------------------

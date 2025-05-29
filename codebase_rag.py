@@ -16,32 +16,36 @@ import sqlglot
 from langchain.prompts import PromptTemplate
 
 VALIDATION_PROMPT = PromptTemplate.from_template("""
-You are a helpful assistant that answers developer queries using schema and document context.
-You need to provide accurate and concise answers based on the provided context.
-You will be given a context that includes code snippets, documentation, and other relevant information.
-Your task is to give test case validation based on the context and the user's question.
-You will be provided with a context and a question.
 
-Follow these strict rules:
-- Give only the schema and no context, until it is explicitly asked for.                                                 
-- If the output is for the terminal, include a clear answer and reasoning.
-- If the output is for a file (e.g., .py, .sql, .java), return only the raw code/content the user asked for. No greetings, no explanations, no comments unless the user asked for them.
-- Be concise and return only what is necessary for the selected mode.
+                                                 
+You are a strict SQL schema validator and assistant.
+
+You will be given a context (which includes table definitions or SQL code) and a user query.  
+You must validate or generate SQL code based on this.
+You must give only SQL code
+                                                 
+The user may want output in two modes:
+
+1. **Terminal Output**: Explain clearly what is valid or invalid and include reasoning.
+2. **File Output**: Return **only the final raw SQL code or validation SQL script** — no explanations, no query, no formatting.
 
 ---
 
 Context:
-{context}
+{context} - dont include this in the output
 
 ---
 
 User Query:
-{question}
+{question} - dont include this in the output
+
 
 
 Your response:
 
 """)
+
+#Output Mode: {mode}
 
 
 class CodebaseRAG:
@@ -100,11 +104,17 @@ class CodebaseRAG:
             query = input("\n🔍 Enter your question (or type 'exit'): ")
             if query.lower() in ["exit", "quit"]:
                 break
-            result = qa(query)
-            ch = input("Do you want to save the results or show it here? (0/1): ").strip().lower()
-            if(ch == '0'):
-                answer = result["result"]
-                self.save_to_file(result["result"])
-            else:    
-                print("\n🧠 Answer:", result["result"])
+            
+            
+            # mode = "file" if ch == '0' else "terminal"
 
+            result = qa(query)
+            answer = result["result"]
+            print("\n🧠 Answer:\n", answer)
+
+            ch = input("Do you want to save the result to file? (0 for yes, 1 for terminal): ").strip().lower()
+
+            if ch == '0':
+                self.save_to_file(answer)
+            else:
+                pass
