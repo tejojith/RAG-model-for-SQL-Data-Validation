@@ -59,13 +59,23 @@ class CodebaseRAG:
                 else:
                     sql_code = answer.strip()
                 
-                with open("rag_output.sql", "w", encoding="utf-8") as f:
-                    f.write(sql_code)
+                
+                f.write(sql_code)
                 print("Validation SQL saved to rag_output.sql")
                 
             elif output_format == "py":
+                if '```pyhton' in answer:
+                    code = answer.split('```python')[1].split('```')[0].strip()
+                else:
+                    code = answer.strip()
+                f.write(code)
                 f.write(f"{answer}\n{'#'*40}\n")
             elif output_format == "java":
+                if '```java' in answer:
+                    code = answer.split('```java')[1].split('```')[0].strip()
+                else:
+                    code = answer.strip()
+                f.write(code)
                 f.write(f"{answer}\n{'/'*40}\n")
 
     def create_embeddings_and_store(self):
@@ -98,9 +108,6 @@ class CodebaseRAG:
             if query.lower() in ["exit", "quit"]:
                 break
             
-            
-            # mode = "file" if ch == '0' else "terminal"
-
             result = qa(query)
             answer = result["result"]
             print("\n🧠 Answer:\n", answer)
