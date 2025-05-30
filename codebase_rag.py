@@ -16,32 +16,17 @@ import sqlglot
 from langchain.prompts import PromptTemplate
 
 VALIDATION_PROMPT = PromptTemplate.from_template("""
+You are a SQL schema validator. When given a request for SQL schema validation:
 
-                                                 
-You are a strict SQL schema validator and assistant.
+1. Return ONLY the raw SQL validation code
+2. No explanations, no markdown formatting, no comments
+3. Just the pure SQL statements that would validate the schema
 
-You will be given a context (which includes table definitions or SQL code) and a user query.  
-You must validate or generate SQL code based on this.
-You must give only SQL code
-                                                 
-The user may want output in two modes:
+Context: {context}
 
-1. **Terminal Output**: Explain clearly what is valid or invalid and include reasoning.
-2. **File Output**: Return **only the final raw SQL code or validation SQL script** — no explanations, no query, no formatting.
+User Request: {question}
 
----
-
-Context:
-{context} - dont include this in the output
-
----
-
-User Query:
-{question} - dont include this in the output
-
-
-
-Your response:
+SQL Validation Code:
 
 """)
 
@@ -69,7 +54,15 @@ class CodebaseRAG:
             if output_format == "txt":
                 f.write(f"{answer}\n{'-'*40}\n")
             elif output_format == "sql":
-                f.write(f"{answer}\n{'-'*40}\n")
+                if '```sql' in answer:
+                    sql_code = answer.split('```sql')[1].split('```')[0].strip()
+                else:
+                    sql_code = answer.strip()
+                
+                with open("rag_output.sql", "w", encoding="utf-8") as f:
+                    f.write(sql_code)
+                print("Validation SQL saved to rag_output.sql")
+                
             elif output_format == "py":
                 f.write(f"{answer}\n{'#'*40}\n")
             elif output_format == "java":
