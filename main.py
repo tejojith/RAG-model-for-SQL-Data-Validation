@@ -6,6 +6,7 @@ PROJECT_PATH, DB_PATH = check_for_file()
 rag = CodebaseRAG(PROJECT_PATH, DB_PATH)
 
 
+
 # # Validate SQL schemas
 # rag.validate_sql_files()
 

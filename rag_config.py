@@ -1,67 +1,40 @@
 import os
 
 def check_for_file():
-    def is_sqlite3_file(filepath):
-        if not os.path.isfile(filepath):
+    def is_faiss_folder(path):
+        """Check if a folder contains FAISS files"""
+        if not os.path.isdir(path):
             return False
-        try:
-            with open(filepath, 'rb') as f:
-                header = f.read(16)
-                return header == b'SQLite format 3\x00'
-        except Exception:
-            return False
+        return os.path.exists(os.path.join(path, "index.faiss")) and os.path.exists(os.path.join(path, "index.pkl"))
 
-    def find_sqlite_files_loop(base_dir):
-        sqlite_files = []
-        dirs_to_check = [base_dir]
+    def find_faiss_dirs(base_dir):
+        faiss_dirs = []
+        for root, dirs, files in os.walk(base_dir):
+            for d in dirs:
+                full_path = os.path.join(root, d)
+                if is_faiss_folder(full_path):
+                    faiss_dirs.append(full_path)
+        return faiss_dirs
 
-        while dirs_to_check:
-            current_dir = dirs_to_check.pop(0)
-            try:
-                for entry in os.listdir(current_dir):
-                    full_path = os.path.join(current_dir, entry)
-                    if os.path.isdir(full_path):
-                        dirs_to_check.append(full_path)
-                    elif is_sqlite3_file(full_path):
-                        sqlite_files.append(full_path)
-            except Exception as e:
-                print(f"Error accessing {current_dir}: {e}")
-        
-        return sqlite_files
+    directory_to_search = '.'  # or specify another base directory
+    found_dirs = find_faiss_dirs(directory_to_search)
 
-    # Usage
-    directory_to_search = '.'  # or any specific path
-    found_files = find_sqlite_files_loop(directory_to_search)
+    def create_new_faiss_dir():
+        print("Creating a new FAISS vector store directory.")
+        name = input("Enter the name of the new FAISS DB folder: ").strip()
+        os.makedirs(name, exist_ok=True)
+        return name
 
-    def create_new_db():
-        print("Creating a new one.")
-        name = input("Enter the name of the new DB: ")
-        DB_PATH = name
-        return DB_PATH
-
-    flag = True
-    number = 1
-    while(flag):
-        if len(found_files) > 0:
-            print("Found existing DB: " + found_files[0])
-            number = 0
-            flag = False
-
+    if found_dirs:
+        print(f"Found existing FAISS vector DB: {found_dirs[0]}")
+        use_existing = input("Do you want to continue with the existing one? (y/n): ").strip().lower()
+        if use_existing == 'y':
+            DB_PATH = found_dirs[0]
         else:
-            print("No existing DB found")
-            flag = False
-
-
-    if number == 0:
-        print("do you want to continue with the existing DB? (y/n)")
-        if input().lower() == 'y':
-            DB_PATH = found_files[0].split('\\')[1]
-        else:
-            DB_PATH = create_new_db()
+            DB_PATH = create_new_faiss_dir()
     else:
-        DB_PATH = create_new_db()
+        print("No existing FAISS DB found.")
+        DB_PATH = create_new_faiss_dir()
 
     PROJECT_PATH = "schemas"
-
     return PROJECT_PATH, DB_PATH
-
