@@ -1,0 +1,78 @@
+
+# SQL Table Validation Instructions
+
+## Objective:
+Given a SQL CREATE TABLE statement, validate the structure, constraints, and default behaviors using a structured SQL script. This script helps verify that the table works as expected in a relational database (e.g., MySQL, PostgreSQL).
+
+## Validation Steps:
+
+1. **Drop Table Safety**  
+   Start by dropping the table if it exists:  
+   ```sql
+   DROP TABLE IF EXISTS table_name;
+   ```
+
+2. **Recreate Table**  
+   Paste the given CREATE TABLE statement exactly as provided.
+
+3. **Insert Valid Data**  
+   Insert a row with all required (NOT NULL) fields filled properly.
+
+4. **Test UNIQUE Constraints**  
+   Attempt to insert a row that duplicates a value from a UNIQUE column (e.g., username or email). Expect it to fail.
+
+5. **Test NOT NULL Constraints**  
+   Attempt to insert a row with NULL or missing values in NOT NULL columns. Expect it to fail.
+
+6. **Test Default Values**  
+   Insert a row omitting fields that have default values (e.g., TIMESTAMP, BOOLEAN) and verify they are applied.
+
+7. **Verify Contents**  
+   Use `SELECT` queries to:
+   - Check inserted data
+   - Confirm default values
+   - Confirm failed insertions didn’t corrupt state
+
+8. **Final Table Check**  
+   ```sql
+   SELECT * FROM table_name;
+   ```
+
+## Example Pattern:
+
+```sql
+-- Drop table if exists
+DROP TABLE IF EXISTS users;
+
+-- Recreate table
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Valid insert
+INSERT INTO users (username, email, password_hash) 
+VALUES ('alice', 'alice@example.com', 'hash123');
+
+-- Duplicate username (should fail)
+INSERT INTO users (username, email, password_hash) 
+VALUES ('alice', 'another@example.com', 'hash456');
+
+-- NULL in NOT NULL field (should fail)
+INSERT INTO users (username, email) 
+VALUES (NULL, NULL);
+
+-- Insert with defaults
+INSERT INTO users (username, email, password_hash) 
+VALUES ('bob', 'bob@example.com', 'hash789');
+
+-- Check table
+SELECT * FROM users;
+```
+
+## Usage:
+Feed this document into the vector store or retrieval index of your RAG pipeline. When asked to generate a test script for a SQL schema, retrieve this chunk to guide generation with the proper validation structure.

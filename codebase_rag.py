@@ -1,5 +1,5 @@
 import os
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 #from langchain_community.embeddings import OllamaEmbeddings
 #from langchain_community.llms import Ollama
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -14,22 +14,38 @@ from multiprocessing import Pool
 from langchain_community.document_loaders import (TextLoader, PythonLoader, 
                                                         JSONLoader, BSHTMLLoader)
 
-
+import time
 from langchain.prompts import PromptTemplate
 
+
 VALIDATION_PROMPT = PromptTemplate.from_template("""
-You are a SQL schema validator. When given a request for SQL schema validation:
+You are a SQL validation script generator.
 
-1. Return ONLY the raw SQL validation code in the language specified by the user.
-2. No explanations, no markdown formatting, no comments
-3. Just the pure SQL statements that would validate the schema.
-4. If the request is for Python or Java, return the code that would validate the SQL schema.
+Given any SQL CREATE TABLE statement, your task is to generate a validation test SQL script that performs the following:
 
-Context: {context}
+1. Drops the table if it already exists.
+2. Recreates the table exactly as provided.
+3. Inserts a valid row with values for all NOT NULL fields.
+4. Attempts to insert a row that violates any UNIQUE constraint (e.g., same username or email).
+5. Attempts to insert a row that violates any NOT NULL constraint (by omitting a NOT NULL field or inserting NULL).
+6. Inserts a second valid row with minimal fields (if defaults are present).
+7. Includes a SELECT query to verify that default values (e.g., timestamps, booleans) are applied.
+8. Ends with a SELECT * query to show the current state of the table.
 
-User Request: {question}
+Important:
+- Output must be **pure SQL only**.
+- Do **not include** any explanations, comments, or markdown.
+- Output must be executable in MySQL or compatible engines.
 
-SQL Validation Code:
+Here is the SQL table definition:
+{context}
+
+User Query:
+{question}
+                              
+
+Now generate the full SQL test script as per the above instructions.
+
 
 """)
 
@@ -52,7 +68,12 @@ class CodebaseRAG:
             output_format = "txt"
 
 
-        output_file = f"rag_output.{output_format}"
+        name = input("Enter a name for the output file (without extension): ").strip()
+        if not name:
+            output_file = f"rag_output.{output_format}"
+        else:
+            output_file = f"{name}_rag_output.{output_format}"
+
         with open(output_file, "w", encoding="utf-8") as f:
             if output_format == "txt":
                 f.write(f"{answer}\n{'-'*40}\n")
@@ -64,7 +85,7 @@ class CodebaseRAG:
                 
                 
                 f.write(sql_code)
-                print("Validation SQL saved to rag_output.sql")
+                print(f"{name}_rag_output.{output_format}")
                 
             elif output_format == "py":
                 if '```python' in answer:
@@ -72,27 +93,12 @@ class CodebaseRAG:
                 else:
                     code = answer.strip()
                 f.write(code)
-                f.write(f"{answer}\n{'#'*40}\n")
             elif output_format == "java":
                 if '```java' in answer:
                     code = answer.split('```java')[1].split('```')[0].strip()
                 else:
                     code = answer.strip()
                 f.write(code)
-                f.write(f"{answer}\n{'/'*40}\n")
-
-        
-    # def create_embeddings_and_store(self):
-    #     loader = DirectoryLoader(self.project_path, glob="**/*.*", loader_cls=TextLoader)
-    #     documents = loader.load()
-    #     if not documents:
-    #         return
-    #     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    #     chunks = splitter.split_documents(documents)
-
-    #     self.vector_db = FAISS.from_documents(chunks, self.embedding)
-    #     self.vector_db.save_local(self.db_path) 
-     # Add file type filtering and parallel processing
         
     def get_loader(file_path):
         if file_path.endswith('.py'):
@@ -144,21 +150,26 @@ class CodebaseRAG:
             embeddings=self.embedding,
             allow_dangerous_deserialization=True  # Only if you trust the source
         )
-    
+    def select_llm_for_query(query: str):
+        if "code" in query.lower() or "sql" in query.lower() or "generate" in query.lower():
+            return "codellama"
+        elif len(query) > 300 or "explain" in query.lower():
+            return "llama3"
+        else:
+            return "mistral"    
 
     def query_rag_system(self):
         if not self.vector_db:
             self.load_vector_db()
         retriever = self.vector_db.as_retriever()
-        
-        llm = OllamaLLM(model="mistral",
+        llm = OllamaLLM(model="codellama:7b",
                         temperature=0.1,  # Less randomness
                         top_k=10,  # Faster sampling
                         repeat_penalty=1.1  # Prevent repetition
                         )  # Use any: mistral, wizardcoder, codellama
         qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, return_source_documents=True,chain_type_kwargs={"prompt": VALIDATION_PROMPT} )
 
-        
+
 
 
 
@@ -166,10 +177,15 @@ class CodebaseRAG:
             query = input("\n🔍 Enter your question (or type 'exit'): ")
             if query.lower() in ["exit", "quit"]:
                 break
+
+            start_time = time.time()
             
             result = qa(query)
             answer = result["result"]
             print("\n🧠 Answer:\n", answer)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"Time taken: {elapsed_time:.4f} seconds")
 
             ch = input("Do you want to save the result to file? (0 for yes, 1 for terminal): ").strip().lower()
 
