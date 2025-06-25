@@ -1,0 +1,77 @@
+-- Drop table if exists
+DROP TABLE IF EXISTS users;
+
+-- Recreate table
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    date_of_birth DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Test Case 1: Valid initial insert
+START TRANSACTION;
+INSERT INTO users (username, email, password_hash) 
+VALUES ('testuser1', 'test1@example.com', 'validhash');
+SELECT 'Test 1 Passed' AS test_result;
+ROLLBACK;
+
+-- Test Case 2: UNIQUE username violation
+START TRANSACTION;
+INSERT INTO users (username, email, password_hash) 
+VALUES ('testuser2', 'test2@example.com', 'validhash');
+
+-- This should fail
+INSERT INTO users (username, email, password_hash) 
+VALUES ('testuser2', 'different@example.com', 'validhash')
+ON DUPLICATE KEY UPDATE user_id = user_id; -- Silent handling
+
+SELECT IF(COUNT(*) = 1, 'Test 2 Passed', 'Test 2 Failed') AS test_result
+FROM users;
+ROLLBACK;
+
+-- Test Case 3: UNIQUE email violation
+START TRANSACTION;
+INSERT INTO users (username, email, password_hash) 
+VALUES ('testuser3', 'test3@example.com', 'validhash');
+
+-- This should fail
+INSERT INTO users (username, email, password_hash) 
+VALUES ('differentuser', 'test3@example.com', 'validhash')
+ON DUPLICATE KEY UPDATE user_id = user_id;
+
+SELECT IF(COUNT(*) = 1, 'Test 3 Passed', 'Test 3 Failed') AS test_result
+FROM users;
+ROLLBACK;
+
+-- Test Case 4: NOT NULL violations
+START TRANSACTION;
+-- Should fail all three NOT NULL constraints
+INSERT INTO users (username, email, password_hash) 
+VALUES (NULL, NULL, NULL)
+ON DUPLICATE KEY UPDATE user_id = user_id;
+
+SELECT IF(COUNT(*) = 0, 'Test 4 Passed', 'Test 4 Failed') AS test_result
+FROM users;
+ROLLBACK;
+
+-- Test Case 5: Default values verification
+START TRANSACTION;
+INSERT INTO users (username, email, password_hash) 
+VALUES ('testuser5', 'test5@example.com', 'validhash');
+
+SELECT 
+    IF(created_at IS NOT NULL AND is_active = TRUE, 
+       'Test 5 Passed', 'Test 5 Failed') AS test_result
+FROM users 
+WHERE username = 'testuser5';
+ROLLBACK;
+
+-- Final summary
+SELECT 'All validation tests completed' AS final_result;

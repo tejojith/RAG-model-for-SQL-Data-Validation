@@ -16,6 +16,7 @@ from langchain_community.document_loaders import (TextLoader, PythonLoader,
 
 import time
 from langchain.prompts import PromptTemplate
+from chunking import EnhancedChunker
 
 
 VALIDATION_PROMPT = PromptTemplate.from_template("""
@@ -23,14 +24,37 @@ You are a SQL validation script generator.
 
 Given any SQL CREATE TABLE statement, your task is to generate a validation test SQL script that performs the following:
 
-1. Drops the table if it already exists.
-2. Recreates the table exactly as provided.
-3. Inserts a valid row with values for all NOT NULL fields.
-4. Attempts to insert a row that violates any UNIQUE constraint (e.g., same username or email).
-5. Attempts to insert a row that violates any NOT NULL constraint (by omitting a NOT NULL field or inserting NULL).
-6. Inserts a second valid row with minimal fields (if defaults are present).
-7. Includes a SELECT query to verify that default values (e.g., timestamps, booleans) are applied.
-8. Ends with a SELECT * query to show the current state of the table.
+1. Use transactions (START TRANSACTION/ROLLBACK) for each test case
+2. Include explicit verification SELECTs after each operation
+3. Test all constraints (UNIQUE on all applicable columns)
+4. Verify DEFAULT values work correctly
+5. Include data type specific tests (DATE, TIMESTAMP, etc.)
+6. Drops the table if it already exists.
+7. Recreates the table exactly as provided.
+8. Inserts a valid row with values for all NOT NULL fields.
+9. Attempts to insert a row that violates any UNIQUE constraint (e.g., same username or email).
+10. Attempts to insert a row that violates any NOT NULL constraint (by omitting a NOT NULL field or inserting NULL).
+11. Inserts a second valid row with minimal fields (if defaults are present).
+12. Includes a SELECT query to verify that default values (e.g., timestamps, booleans) are applied.
+13. Ends with a SELECT * query to show the current state of the table.
+14. Follows this exact structure:
+                                                              
+-- Test Case [N]: [Description]
+START TRANSACTION;
+[Test SQL]
+[Verification SQL]
+ROLLBACK;
+
+For each test case:
+- Include comments explaining the test
+- Use ON DUPLICATE KEY UPDATE for expected failures
+- Output a clear pass/fail message
+- Keep tests independent
+
+Special requirements:
+- MySQL syntax
+- Test all columns systematically
+- Include edge cases
 
 Important:
 - Output must be **pure SQL only**.
@@ -57,7 +81,10 @@ class CodebaseRAG:
         self.project_path = project_path
         self.db_path = db_path
         self.embed_model = "nomic-embed-text"  # or mxbai-embed-large for code
+        
         self.embedding = OllamaEmbeddings(model=self.embed_model)
+         # imported all the chunking functions
+        self.chunker = EnhancedChunker(self.embedding)
         self.vector_db = None
 
     def save_to_file(self, answer):
@@ -118,19 +145,31 @@ class CodebaseRAG:
             for file in files:
                 if any(file.endswith(ext) for ext in relevant_extensions):
                     try:
-                        loader = TextLoader(os.path.join(root, file))
-                        documents.extend(loader.load())
+                        file_path = os.path.join(root, file)
+                        loader = TextLoader(file_path)
+                        loaded_docs = loader.load()
+                        
+                        for doc in loaded_docs:
+                            doc.metadata["source_file"] = os.path.basename(file_path)
+                            doc.metadata["file_extension"] = os.path.splitext(file_path)[1]
+                        
+                        documents.extend(loaded_docs)
                     except Exception as e:
                         print(f"Error loading {file}: {e}")
+
         
         # Split documents
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,  # Reduced from 1000 for better performance
-            chunk_overlap=50,
-            length_function=len,
-            is_separator_regex=False
-        )
-        chunks = splitter.split_documents(documents)
+        # splitter = RecursiveCharacterTextSplitter(
+        #     chunk_size=500,  # Reduced from 1000 for better performance
+        #     chunk_overlap=50,
+        #     length_function=len,
+        #     is_separator_regex=False
+        # )
+        # chunks = splitter.split_documents(documents)
+
+        #updated splitting and chunking
+
+        chunks = self.chunker.smart_chunk_documents(documents)
         
         # Create FAISS index with optimized parameters
         self.vector_db = FAISS.from_documents(

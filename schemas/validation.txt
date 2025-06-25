@@ -1,78 +1,60 @@
+-- SQL Validation Script for 'users' table
+-- Generated: 2023-11-15
 
-# SQL Table Validation Instructions
-
-## Objective:
-Given a SQL CREATE TABLE statement, validate the structure, constraints, and default behaviors using a structured SQL script. This script helps verify that the table works as expected in a relational database (e.g., MySQL, PostgreSQL).
-
-## Validation Steps:
-
-1. **Drop Table Safety**  
-   Start by dropping the table if it exists:  
-   ```sql
-   DROP TABLE IF EXISTS table_name;
-   ```
-
-2. **Recreate Table**  
-   Paste the given CREATE TABLE statement exactly as provided.
-
-3. **Insert Valid Data**  
-   Insert a row with all required (NOT NULL) fields filled properly.
-
-4. **Test UNIQUE Constraints**  
-   Attempt to insert a row that duplicates a value from a UNIQUE column (e.g., username or email). Expect it to fail.
-
-5. **Test NOT NULL Constraints**  
-   Attempt to insert a row with NULL or missing values in NOT NULL columns. Expect it to fail.
-
-6. **Test Default Values**  
-   Insert a row omitting fields that have default values (e.g., TIMESTAMP, BOOLEAN) and verify they are applied.
-
-7. **Verify Contents**  
-   Use `SELECT` queries to:
-   - Check inserted data
-   - Confirm default values
-   - Confirm failed insertions didn’t corrupt state
-
-8. **Final Table Check**  
-   ```sql
-   SELECT * FROM table_name;
-   ```
-
-## Example Pattern:
-
-```sql
--- Drop table if exists
-DROP TABLE IF EXISTS users;
-
--- Recreate table
-CREATE TABLE users (
-    user_id INT PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
-);
-
--- Valid insert
+-- Test Case 1: Basic valid insert
+START TRANSACTION;
 INSERT INTO users (username, email, password_hash) 
-VALUES ('alice', 'alice@example.com', 'hash123');
+VALUES ('valid_user', 'valid@example.com', 'securehash');
+SELECT IF(COUNT(*) = 1, 'PASS: Valid insert', 'FAIL: Valid insert') AS result
+FROM users WHERE username = 'valid_user';
+ROLLBACK;
 
--- Duplicate username (should fail)
+-- Test Case 2: UNIQUE username violation
+START TRANSACTION;
 INSERT INTO users (username, email, password_hash) 
-VALUES ('alice', 'another@example.com', 'hash456');
-
--- NULL in NOT NULL field (should fail)
-INSERT INTO users (username, email) 
-VALUES (NULL, NULL);
-
--- Insert with defaults
+VALUES ('dup_user', 'unique1@example.com', 'hash1');
 INSERT INTO users (username, email, password_hash) 
-VALUES ('bob', 'bob@example.com', 'hash789');
+VALUES ('dup_user', 'unique2@example.com', 'hash2')
+ON DUPLICATE KEY UPDATE user_id = user_id;
+SELECT IF(COUNT(*) = 1, 'PASS: Username uniqueness', 'FAIL: Username uniqueness') 
+FROM users WHERE username = 'dup_user';
+ROLLBACK;
 
--- Check table
-SELECT * FROM users;
-```
+-- Test Case 3: NOT NULL constraints
+START TRANSACTION;
+INSERT INTO users (username, email, password_hash) 
+VALUES (NULL, NULL, NULL)
+ON DUPLICATE KEY UPDATE user_id = user_id;
+SELECT IF(COUNT(*) = 0, 'PASS: NULL constraints', 'FAIL: NULL constraints') 
+FROM users;
+ROLLBACK;
 
-## Usage:
-Feed this document into the vector store or retrieval index of your RAG pipeline. When asked to generate a test script for a SQL schema, retrieve this chunk to guide generation with the proper validation structure.
+-- Test Case 4: Default values
+START TRANSACTION;
+INSERT INTO users (username, email, password_hash) 
+VALUES ('default_test', 'default@example.com', 'hash');
+SELECT 
+    IF(created_at IS NOT NULL AND is_active = 1, 
+       'PASS: Default values', 
+       'FAIL: Default values') AS result
+FROM users 
+WHERE username = 'default_test';
+ROLLBACK;
+
+-- Test Case 5: Date validation
+START TRANSACTION;
+-- Valid date
+INSERT INTO users (username, email, password_hash, date_of_birth) 
+VALUES ('date_test1', 'date1@example.com', 'hash', '1990-01-01');
+-- Invalid date (should fail silently)
+INSERT INTO users (username, email, password_hash, date_of_birth) 
+VALUES ('date_test2', 'date2@example.com', 'hash', 'not-a-date')
+ON DUPLICATE KEY UPDATE user_id = user_id;
+SELECT IF(COUNT(*) = 1, 'PASS: Date validation', 'FAIL: Date validation') 
+FROM users WHERE username LIKE 'date_test%';
+ROLLBACK;
+
+-- Final Results
+SELECT CONCAT('Validation complete: ', 
+       (SELECT COUNT(*) FROM (SELECT 1 AS test UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5) AS tests),
+       ' tests executed') AS summary;

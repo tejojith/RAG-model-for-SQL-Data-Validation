@@ -14,42 +14,51 @@ class EnhancedChunker:
         self.embedding_model = embedding_model
         
     def get_code_splitter(self, language: str):
-        """Get language-specific code splitter"""
         language_map = {
             '.py': Language.PYTHON,
-            '.sql': Language.SQL,
             '.js': Language.JS,
             '.java': Language.JAVA,
             '.cpp': Language.CPP,
-            '.c': Language.C
+            '.c': Language.C,
         }
         
-        if language in language_map:
+        if language == '.sql':
+            #a custom splitter for SQL
+            return RecursiveCharacterTextSplitter(
+                chunk_size=800,
+                chunk_overlap=100,
+                separators=[
+                    "\n\n",  # Double newlines often separate SQL statements
+                    "\n",    # Single newlines
+                    ";",     # SQL statement terminators
+                    " ",     # Spaces
+                    ""       # Fallback
+                ],
+                length_function=len
+            )
+        elif language in language_map:
             return RecursiveCharacterTextSplitter.from_language(
                 language=language_map[language],
-                chunk_size=800,  # Larger for code to preserve context
+                chunk_size=800,
                 chunk_overlap=100,
                 length_function=len
             )
         return None
     
     def smart_chunk_documents(self, documents):
-        """Enhanced chunking with different strategies for different content types"""
         all_chunks = []
         
         for doc in documents:
             file_path = doc.metadata.get('source', '')
             file_ext = os.path.splitext(file_path)[1].lower()
             
-            # Code files - use language-specific splitting
             if file_ext in ['.py', '.sql', '.js', '.java', '.cpp', '.c']:
                 code_splitter = self.get_code_splitter(file_ext)
                 if code_splitter:
                     chunks = code_splitter.split_documents([doc])
                 else:
-                    chunks = self._fallback_code_split([doc])
+                    chunks = self.fallback_code_split([doc])
             
-            # Documentation files - use semantic chunking
             elif file_ext in ['.md', '.txt', '.rst']:
                 semantic_splitter = SemanticChunker(
                     embeddings=self.embedding_model,
@@ -60,26 +69,23 @@ class EnhancedChunker:
             
             # JSON/Config files - preserve structure
             elif file_ext in ['.json', '.yaml', '.yml', '.toml']:
-                chunks = self._structure_aware_split([doc])
+                chunks = self.structure_aware_split([doc])
             
-            # Default fallback
             else:
-                chunks = self._fallback_code_split([doc])
+                chunks = self.fallback_code_split([doc])
             
-            # Add metadata enrichment
             for chunk in chunks:
                 chunk.metadata.update({
                     'file_type': file_ext,
-                    'chunk_type': self._classify_chunk_content(chunk.page_content),
-                    'language': self._detect_language(file_ext)
+                    'chunk_type': self.classify_chunk_content(chunk.page_content),
+                    'language': self.detect_language(file_ext)
                 })
             
             all_chunks.extend(chunks)
         
         return all_chunks
     
-    def _fallback_code_split(self, documents):
-        """Fallback splitter for unknown file types"""
+    def fallback_code_split(self, documents):
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=600,
             chunk_overlap=80,
@@ -91,8 +97,7 @@ class EnhancedChunker:
         )
         return splitter.split_documents(documents)
     
-    def _structure_aware_split(self, documents):
-        """Split structured files while preserving context"""
+    def structure_aware_split(self, documents):
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=400,
             chunk_overlap=50,
@@ -101,8 +106,7 @@ class EnhancedChunker:
         )
         return splitter.split_documents(documents)
     
-    def _classify_chunk_content(self, content):
-        """Classify the type of content in a chunk"""
+    def classify_chunk_content(self, content):
         content_lower = content.lower()
         
         if any(keyword in content_lower for keyword in ['def ', 'class ', 'function']):
@@ -116,8 +120,7 @@ class EnhancedChunker:
         else:
             return 'general'
     
-    def _detect_language(self, file_ext):
-        """Detect programming language from file extension"""
+    def detect_language(self, file_ext):
         lang_map = {
             '.py': 'python',
             '.sql': 'sql',
